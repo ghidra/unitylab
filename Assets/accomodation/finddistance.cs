@@ -60,13 +60,6 @@ public class finddistance : MonoBehaviour
                 }
                 i++;
             }
-            
-            ///move to section
-            /*if(hitPosition.magnitude>0f)
-            {
-                //print("I'm looking at " + hit.transform.name);
-                SetFocusPosition(hit.point);
-            }*/
 
         }
         ///we are in a section
@@ -76,22 +69,21 @@ public class finddistance : MonoBehaviour
             switch(sections[_inSection].findtype)
             {
                 case _findtype.angle:
-                    //print("angle type");
                     SetFocusPosition( CheckAngle(ray,sections[_inSection].children));
                     break;
                 case _findtype.basic:
-                    //print("basic type");
                     SetFocusPosition(sections[_inSection].children[0].transform.position);
                     break;
                 case _findtype.ray:
-                    print("ray type");
                     SetFocusPosition(CheckRaycast(hit.point+ray.direction*0.01f,ray.direction));
                     break;
                 case _findtype.angleAndRay:
-                    //print("angle and ray type");
+                    //first we see if we are hitting something
+                    Vector3 rayhit = CheckRaycast(hit.point+ray.direction*0.01f,ray.direction);
+                    Vector3 angleTarget = CheckAngle(ray,sections[_inSection].children);
+                    SetFocusPosition(Vector3.Lerp(angleTarget,rayhit,Mathf.Ceil(rayhit.magnitude-0.001f)));
                     break;
                 case _findtype.angleAndBasic:
-                    //print("angle and basic type");
                     break;
             }
         }
@@ -99,12 +91,19 @@ public class finddistance : MonoBehaviour
     }
     private void SetFocusPosition(Vector3 pos)
     {
-        focus_position = Vector3.Lerp(last_focus_position,pos,0.6f);
-        last_focus_position = focus_position;
-
-        if(debug!=null)
+        if(pos.magnitude>0f)
         {
-            debug.position = focus_position;
+            focus_position = Vector3.Lerp(last_focus_position,pos,0.45f);
+            last_focus_position = focus_position;
+
+            if(debug!=null)
+            {
+                debug.position = focus_position;
+            }
+            ///HERE IS WHERE I CAN SET THE ACCOMODATION
+            //////////////--------///////////////
+            print(Vector3.Distance(cam.transform.position,pos));
+            ///////////////////////////////
         }
     }
     private Vector3 CheckRaycast(Vector3 origin, Vector3 direction)
