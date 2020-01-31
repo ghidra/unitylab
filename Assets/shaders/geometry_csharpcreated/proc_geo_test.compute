@@ -1,0 +1,36 @@
+﻿#pragma kernel CSVerletMeshTonandiA
+
+#include "/Assets/shaders/NoiseLib.cginc"
+#include "/Assets/shaders/Utilities.cginc"
+//#include "/Assets/Content/Prototypes/JG_lab/verlet/tonandiAStruct.cginc"
+
+struct MeshVert
+{
+	float4 P;///i might sneak uv in w of pos and norm
+	float4 N;
+	float4 distance;
+};
+struct MeshPoint 
+{
+    float4 P;//w is the id of the pinned point inside verlet point buffer
+    float4 v;//w is neighbor id of constraint network, a seperate point buffer
+    float4 preP;//w number of neighbors
+};
+
+///main mesh
+RWStructuredBuffer<MeshVert> meshBuffer;/////this buffer is only for softbody based verlet meshes/// these are the triangles
+StructuredBuffer<uint> meshVertIdBuffer;///same here
+
+StructuredBuffer<MeshPoint> verletPointBuffer;///im never actually writing this here... maybe I can use the other one... read
+
+#define _vid meshVertIdBuffer[id.x]
+
+[numthreads(16,1,1)]
+void CSVerletMeshTonandiA (uint3 id : SV_DispatchThreadID)
+{
+
+	float3 p0 = verletPointBuffer[_vid].P.xyz;
+
+	meshBuffer[id.x].P = float4(p0,1.0);
+	meshBuffer[id.x].N = float4(0.0,0.0,1.0,0.0);
+}
