@@ -10,7 +10,7 @@ Shader "Roystan/Grass"
 
 	CGINCLUDE
 	#include "UnityCG.cginc"
-	#include "Autolight.cginc"
+	//#include "Autolight.cginc"
 
 	// Simple noise function, sourced from http://answers.unity.com/answers/624136/view.html
 	// Extended discussion on this function can be found at the following link:
