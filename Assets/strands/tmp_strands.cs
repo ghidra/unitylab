@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(MeshFilter))]
+[RequireComponent(typeof(MeshRenderer))]
+
 public class tmp_strands : MonoBehaviour
 {
 	private Mesh mesh;
+    public Material strandMaterial;
 
 	[Range(0.1f, 64.0f)]
 	public float length=1.0f;
@@ -27,7 +31,7 @@ public class tmp_strands : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-    	Debug.Log("ANYTHING");
+    	//Debug.Log("ANYTHING");
         var vertices = new List<Vector3>();
         var vertices4 = new List<Vector4>();
 		var indices = new List<int>();
@@ -42,10 +46,20 @@ public class tmp_strands : MonoBehaviour
         	float mag = (x/length)*noiseMagnitude;
             vertices.Add(new Vector3(x, ny*mag, nz*mag));
             vertices4.Add(new Vector4(x, ny*mag, nz*mag,1.0f));
+            ///make a crappy triangle to see if that matters.
+            if(i>0 && i<(int)verts-1)
+            {
+                indices.Add(i-1);
+                indices.Add(i);
+                indices.Add(i+1);
+            }
         }
 
         mesh = new Mesh();
         mesh.vertices = vertices.ToArray();
+        mesh.triangles = indices.ToArray();
+
+       
         //foreach( var human in vertices4.ToArray() )
  		//{
    		//	Debug.Log( human );
@@ -63,6 +77,16 @@ public class tmp_strands : MonoBehaviour
         //renderLineBuffer = new ComputeBuffer(numLines, 3*sizeof(float) );///this is to hold positions to render as points
     	//argLineBuffer = new ComputeBuffer(1, 4 * sizeof(uint), ComputeBufferType.IndirectArguments);
         //argLineBuffer.SetData(new uint[4] { (uint)numLines, 1, 0, 0 });
+
+        ///give that point buffer to the surface material
+         ////give the mesh to the thing;
+        GetComponent<MeshFilter>().mesh = mesh;
+        if(strandMaterial!=null)
+        {
+            strandMaterial.SetBuffer("renderPointBuffer", renderPointBuffer);
+            GetComponent<MeshRenderer>().material = strandMaterial;
+        }
+        
     }
 
     // Update is called once per frame
