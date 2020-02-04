@@ -34,6 +34,7 @@ public class tmp_strands : MonoBehaviour
     	//Debug.Log("ANYTHING");
         var vertices = new List<Vector3>();
         var vertices4 = new List<Vector4>();
+        var uvs = new List<Vector2>();
 		var indices = new List<int>();
 
 		float segLength = length/(float)verts;
@@ -46,6 +47,11 @@ public class tmp_strands : MonoBehaviour
         	float mag = (x/length)*noiseMagnitude;
             vertices.Add(new Vector3(x, ny*mag, nz*mag));
             vertices4.Add(new Vector4(x, ny*mag, nz*mag,1.0f));
+
+            ///uv
+            float uvx = (float)i/((float)verts-1);
+            uvs.Add(new Vector2(uvx,0f));
+
             ///make a crappy triangle to see if that matters.
             if(i>0 && i<(int)verts-1)
             {
@@ -57,6 +63,7 @@ public class tmp_strands : MonoBehaviour
 
         mesh = new Mesh();
         mesh.vertices = vertices.ToArray();
+        mesh.uv = uvs.ToArray();
         mesh.triangles = indices.ToArray();
 
        

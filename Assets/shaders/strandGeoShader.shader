@@ -3,12 +3,14 @@
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _Width ("Line Width", Range(0.01,2))=0.1
     }
 
     CGINCLUDE
 
     #include "UnityCG.cginc"
 
+    float _Width;
     StructuredBuffer<float4> renderPointBuffer;
 
     struct appdata
@@ -20,18 +22,14 @@
     struct v2g
     {
         float4 vertex : POSITION;
+        float2 uv : TEXCOORD0;
         uint vertex_id : VertexID;
     };
     struct geometryOutput
     {
         float4 pos : SV_POSITION;
+        float2 uv : TEXCOORD0;
     };
-    
-    //struct v2f
-    //{
-    //    float4 vertex : SV_POSITION;
-    //    float2 uv : TEXCOORD0;
-    //};
 
 
     // Simple noise function, sourced from http://answers.unity.com/answers/624136/view.html
@@ -62,34 +60,24 @@
             );
     }
 
-    //float4 vert(float4 vertex : POSITION) : SV_POSITION
-    //{
-    //    return vertex;
-    //}
     v2g vert(appdata v)
     {
         v2g o;
         o.vertex = v.vertex;
         o.vertex_id = v.vertex_id;
+        o.uv = v.uv;
         return o;
     }
 
-
     //////////////
-    
 
-    [maxvertexcount(3)]
+    [maxvertexcount(6)]
     //void geo(triangle float4 IN[3] : SV_POSITION, inout TriangleStream<geometryOutput> triStream)
     void geo(triangle v2g IN[3] : SV_POSITION, inout TriangleStream<geometryOutput> triStream)
     {
-        geometryOutput o;
-        float3 pos = IN[1].vertex.xyz;//grab point 1 in the triangle
-
-        ///set the vertex ID
-        uint vertex_id = IN[1].vertex_id;
-
-
-        ///lets do some camera facing nonesense here
+        //geometryOutput o;
+        //float3 pos = IN[1].vertex.xyz;//grab point 1 in the triangle
+        ///////////////////////////////
         // get the camera basis vectors
         //https://gist.github.com/renaudbedard/7a90ec4a5a7359712202
         float3 forward = -normalize(UNITY_MATRIX_V._m20_m21_m22);
@@ -97,11 +85,56 @@
         float3 right = normalize(UNITY_MATRIX_V._m00_m01_m02);
         // rotate to face camera
         float4x4 rotationMatrix = float4x4(right,0,up,0,forward,0,0,0,0,1);
+        ///////////////////////////////
 
+        ///set the vertex ID
+        uint vertex_id = IN[1].vertex_id;
+        float3 p1 = renderPointBuffer[vertex_id].xyz;
+
+        ///get the next point id in the strand
+        uint next_vertex_id = vertex_id+1;
+        float3 p2 = renderPointBuffer[next_vertex_id].xyz;
+
+        float3 ray = p2-p1;
+        float3 direction = normalize(ray);
+        float3 strandup = cross(direction,forward);
+        float3 width = strandup*_Width*0.5;
+
+        ///make first point of triangle
+        geometryOutput v1,v2,v3,v4,v5,v6;
+
+        v1.pos = UnityObjectToClipPos(p1+width);
+        v2.pos = UnityObjectToClipPos(p1-width);
+        v3.pos = UnityObjectToClipPos(p2-width);
+
+        v4.pos = UnityObjectToClipPos(p1+width);
+        v5.pos = UnityObjectToClipPos(p2-width);
+        v6.pos = UnityObjectToClipPos(p2+width);
+
+        v1.uv = float2(0,0);
+        v2.uv = float2(0,1);
+        v3.uv = float2(1,1);
+
+        v6.uv = float2(1,1);
+        v4.uv = float2(0,0);
+        v5.uv = float2(1,0);
+
+        triStream.Append(v1);
+        triStream.Append(v2);
+        triStream.Append(v3);
+
+        triStream.Append(v6);
+        triStream.Append(v5);
+        triStream.Append(v4);
+
+        
+/*
         /////////////
         ///get data from the buffer
-        float3 buffer_position = renderPointBuffer[vertex_id].xyz;
+        float3 buffer_position = p1;
         /////////////
+
+        o.uv = IN[1].uv;
 
         o.pos = UnityObjectToClipPos(buffer_position +mul( float3(0.5, 0, 0),rotationMatrix));
         triStream.Append(o);
@@ -111,10 +144,12 @@
 
         o.pos = UnityObjectToClipPos(buffer_position + mul( float3(0, 1, 0),rotationMatrix));
         triStream.Append(o);
+*/
     }
     //////////////
 
     ENDCG
+
     SubShader
     {
         Tags { "RenderType"="Opaque" }
@@ -133,7 +168,8 @@
 
             float4 frag (geometryOutput i) : SV_Target
             {   
-                return float4(1, 1, 1, 1);
+
+                return float4(i.uv.x, i.uv.x, i.uv.x, 1);
             }
             ENDCG
         }
