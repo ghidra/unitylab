@@ -3,6 +3,7 @@
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _NormTex ("Texture", 2D) = "gray" {}
         _Width ("Line Width", Range(0.01,2))=0.1
     }
 
@@ -10,13 +11,14 @@
 
     #include "UnityCG.cginc"
 
+
     float _Width;
     StructuredBuffer<float4> renderPointBuffer;
 
     struct appdata
     {
         float4 vertex : POSITION;
-        float2 uv : TEXCOORD0;
+        //float2 uv : TEXCOORD0;
         uint vertex_id : SV_VertexID;
     };
     struct v2g
@@ -28,7 +30,11 @@
     struct geometryOutput
     {
         float4 pos : SV_POSITION;
+        float3 norm : NORMAL;
         float2 uv : TEXCOORD0;
+        float4 tspace0 : TEXCOORD1;
+        float4 tspace1 : TEXCOORD2;
+        float4 tspace2 : TEXCOORD3;
     };
 
 
@@ -65,11 +71,27 @@
         v2g o;
         o.vertex = v.vertex;
         o.vertex_id = v.vertex_id;
-        o.uv = v.uv;
+        //o.uv = v.uv;
         return o;
     }
 
     //////////////
+    geometryOutput VertexOutput(float3 position, float3 normal, float3 tangent, float2 uv)
+    {
+        geometryOutput o;
+
+        o.pos = UnityObjectToClipPos(position);
+        o.uv = uv;
+        o.norm = normal;
+
+        ///get the tangent for normals
+        half3 bi = cross(normal, tangent) * unity_WorldTransformParams.w;
+        o.tspace0 = float4(tangent.x, bi.x, normal.x, position.x);
+        o.tspace1 = float4(tangent.y, bi.y, normal.y, position.y);
+        o.tspace2 = float4(tangent.z, bi.z, normal.z, position.z);
+
+        return o;
+    }
 
     [maxvertexcount(6)]
     //void geo(triangle float4 IN[3] : SV_POSITION, inout TriangleStream<geometryOutput> triStream)
@@ -84,67 +106,52 @@
         float3 up = float3(0, 1, 0); //normalize(UNITY_MATRIX_V._m10_m11_m12);
         float3 right = normalize(UNITY_MATRIX_V._m00_m01_m02);
         // rotate to face camera
-        float4x4 rotationMatrix = float4x4(right,0,up,0,forward,0,0,0,0,1);
+        //float4x4 rotationMatrix = float4x4(right,0,up,0,forward,0,0,0,0,1);
         ///////////////////////////////
 
         ///set the vertex ID
         uint vertex_id = IN[1].vertex_id;
+        uint next_vertex_id = vertex_id+1;//
+        uint prev_vertex_id = max(vertex_id-1,0);
+        uint next_next_vertex_id = vertex_id+2;
+
+        float3 p0 = renderPointBuffer[prev_vertex_id].xyz;
         float3 p1 = renderPointBuffer[vertex_id].xyz;
-
-        ///get the next point id in the strand
-        uint next_vertex_id = vertex_id+1;
         float3 p2 = renderPointBuffer[next_vertex_id].xyz;
+        float3 p3 = renderPointBuffer[next_next_vertex_id].xyz;
 
-        float3 ray = p2-p1;
-        float3 direction = normalize(ray);
-        float3 strandup = cross(direction,forward);
-        float3 width = strandup*_Width*0.5;
 
-        ///make first point of triangle
-        geometryOutput v1,v2,v3,v4,v5,v6;
+        ///get tangents
+        float3 tan1 = normalize(p2-p1);
+        float3 tan2 = (prev_vertex_id==0)?tan1:normalize(p1-p0);
+        float3 tan3 = normalize(p3-p2);///for the second point
 
-        v1.pos = UnityObjectToClipPos(p1+width);
-        v2.pos = UnityObjectToClipPos(p1-width);
-        v3.pos = UnityObjectToClipPos(p2-width);
+        float3 tangent1 = normalize((tan1+tan2)*0.5);
+        float3 tangent2 = normalize((tan2+tan3)*0.5);
 
-        v4.pos = UnityObjectToClipPos(p1+width);
-        v5.pos = UnityObjectToClipPos(p2-width);
-        v6.pos = UnityObjectToClipPos(p2+width);
+        ///get the vector from camera to this point
+        //float3 camLook = normalize(_WorldSpaceCameraPos-p1);
 
-        v1.uv = float2(0,0);
-        v2.uv = float2(0,1);
-        v3.uv = float2(1,1);
+        float3 direction1 = tangent1;
+        float3 strandup1 = normalize(cross(direction1,forward));
+        float3 width1 = strandup1*_Width*0.5;
 
-        v6.uv = float2(1,1);
-        v4.uv = float2(0,0);
-        v5.uv = float2(1,0);
+        float3 direction2 = tangent2;
+        float3 strandup2 = normalize(cross(direction2,forward));
+        float3 width2 = strandup2*_Width*0.5;
 
-        triStream.Append(v1);
-        triStream.Append(v2);
-        triStream.Append(v3);
+        ///////////////////////////////////////
 
-        triStream.Append(v6);
-        triStream.Append(v5);
-        triStream.Append(v4);
+        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
+        triStream.Append(VertexOutput(p1-width1,-forward,tangent1,float2(0,1)));
+        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
 
-        
-/*
-        /////////////
-        ///get data from the buffer
-        float3 buffer_position = p1;
-        /////////////
+        triStream.RestartStrip();
 
-        o.uv = IN[1].uv;
+        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
+        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
+        triStream.Append(VertexOutput(p2+width2,-forward,tangent2,float2(1,0)));
 
-        o.pos = UnityObjectToClipPos(buffer_position +mul( float3(0.5, 0, 0),rotationMatrix));
-        triStream.Append(o);
-
-        o.pos = UnityObjectToClipPos(buffer_position + mul( float3(-0.5, 0, 0),rotationMatrix));
-        triStream.Append(o);
-
-        o.pos = UnityObjectToClipPos(buffer_position + mul( float3(0, 1, 0),rotationMatrix));
-        triStream.Append(o);
-*/
     }
     //////////////
 
@@ -154,23 +161,69 @@
     {
         Tags { "RenderType"="Opaque" }
         LOD 100
+        //Cull Off
 
         Pass
         {
             CGPROGRAM
             #pragma vertex vert
-            #pragma fragment frag
             #pragma geometry geo
+            #pragma fragment frag
+            //#pragma surface frag Standard fullforwardshadows
             #pragma target 4.6
+            #include "UnityGBuffer.cginc"
+            #include "UnityStandardUtils.cginc"
 
             sampler2D _MainTex;
+            sampler2D _NormTex;
             float4 _MainTex_ST;
 
             float4 frag (geometryOutput i) : SV_Target
+            //void frag (geometryOutput i, inout SurfaceOutputStandard o)
             {   
+                half4 normal = tex2D(_NormTex, i.uv.yx);
+                normal.xyz = UnpackScaleNormal(normal, 1.0);
+                float3 wn = normalize(float3(
+                    dot(i.tspace0.xyz, normal),
+                    dot(i.tspace1.xyz, normal),
+                    dot(i.tspace2.xyz, normal)
+                    ));
 
-                return float4(i.uv.x, i.uv.x, i.uv.x, 1);
+                // compute view direction and reflection vector
+                // per-pixel here
+                //half3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
+                //half3 worldRefl = reflect(-worldViewDir, i.worldNormal);
+
+                //o.Albedo = n.rgb;
+                //o.Metallic = 1.0;
+                //o.Smoothness = 0.5;
+                //o.Alpha = 1.0;
+                return float4(wn.r, wn.g, wn.b, 1);
             }
+            ENDCG
+        }
+
+        Pass
+        {
+            Tags
+            {
+                "LightMode" = "ShadowCaster"
+            }
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma geometry geo
+            #pragma fragment frag
+            //#pragma hull hull
+            //#pragma domain domain
+            #pragma target 4.6
+            #pragma multi_compile_shadowcaster
+
+            float4 frag(geometryOutput i) : SV_Target
+            {
+                SHADOW_CASTER_FRAGMENT(i)
+            }
+
             ENDCG
         }
     }

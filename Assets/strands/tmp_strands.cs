@@ -9,6 +9,13 @@ public class tmp_strands : MonoBehaviour
 {
 	private Mesh mesh;
     public Material strandMaterial;
+    private ComputeBuffer renderPointBuffer;//
+
+    public struct renderPoint{
+        public Vector3 P;
+        public Vector3 tangent;
+        public Vector2 uv;
+    }
 
 	[Range(0.1f, 64.0f)]
 	public float length=1.0f;
@@ -23,7 +30,7 @@ public class tmp_strands : MonoBehaviour
     //public bool drawLines;
     public Material debugMaterial;
     //////DEBUG RENDER BUFFERS
- 	private ComputeBuffer renderPointBuffer;///this is just a float4 buffer
+ 	private ComputeBuffer debugRenderPointBuffer;///this is just a float4 buffer
     private ComputeBuffer argPointBuffer;
     //private ComputeBuffer renderLineBuffer;///this is just a float4 buffer
     //private ComputeBuffer argLineBuffer;
@@ -34,7 +41,7 @@ public class tmp_strands : MonoBehaviour
     	//Debug.Log("ANYTHING");
         var vertices = new List<Vector3>();
         var vertices4 = new List<Vector4>();
-        var uvs = new List<Vector2>();
+        //var uvs = new List<Vector2>();
 		var indices = new List<int>();
 
 		float segLength = length/(float)verts;
@@ -49,8 +56,8 @@ public class tmp_strands : MonoBehaviour
             vertices4.Add(new Vector4(x, ny*mag, nz*mag,1.0f));
 
             ///uv
-            float uvx = (float)i/((float)verts-1);
-            uvs.Add(new Vector2(uvx,0f));
+            //float uvx = (float)i/((float)verts-1);
+            //uvs.Add(new Vector2(uvx,0f));
 
             ///make a crappy triangle to see if that matters.
             if(i>0 && i<(int)verts-1)
@@ -63,7 +70,7 @@ public class tmp_strands : MonoBehaviour
 
         mesh = new Mesh();
         mesh.vertices = vertices.ToArray();
-        mesh.uv = uvs.ToArray();
+        //mesh.uv = uvs.ToArray();
         mesh.triangles = indices.ToArray();
 
        
@@ -74,8 +81,8 @@ public class tmp_strands : MonoBehaviour
         //////
         //////DEBUG
         ///point render
-    	renderPointBuffer = new ComputeBuffer((int)verts, 4*sizeof(float) );///this is to hold positions to render as points
-    	renderPointBuffer.SetData(vertices4.ToArray());
+    	debugRenderPointBuffer = new ComputeBuffer((int)verts, 4*sizeof(float) );///this is to hold positions to render as points
+    	debugRenderPointBuffer.SetData(vertices4.ToArray());
     	
     	argPointBuffer = new ComputeBuffer(1, 4 * sizeof(uint), ComputeBufferType.IndirectArguments);
         argPointBuffer.SetData(new uint[4] { verts, 1, 0, 0 });
@@ -90,7 +97,7 @@ public class tmp_strands : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
         if(strandMaterial!=null)
         {
-            strandMaterial.SetBuffer("renderPointBuffer", renderPointBuffer);
+            strandMaterial.SetBuffer("renderPointBuffer", debugRenderPointBuffer);
             GetComponent<MeshRenderer>().material = strandMaterial;
         }
         
@@ -107,7 +114,7 @@ public class tmp_strands : MonoBehaviour
 	}
 
     protected virtual void ReleaseBuffers(){//protected override 
-        if(renderPointBuffer!=null)renderPointBuffer.Release();
+        if(debugRenderPointBuffer!=null)debugRenderPointBuffer.Release();
         //renderLineBuffer.Release();
 
         if(argPointBuffer!=null)argPointBuffer.Release();
@@ -122,13 +129,13 @@ public class tmp_strands : MonoBehaviour
         	if(drawPoints)
         	{
                	////draw the lines
-               	debugMaterial.SetBuffer("renderPointBuffer", renderPointBuffer);//maybe only set this once?
+               	debugMaterial.SetBuffer("renderPointBuffer", debugRenderPointBuffer);//maybe only set this once?
         	    debugMaterial.SetPass(0);///this has to be set
         	    Graphics.DrawProceduralIndirectNow(MeshTopology.Points,argPointBuffer);
             }
             //if(drawLines)
             //{
-        	//    debugMaterial.SetBuffer("renderPointBuffer", renderLineBuffer);
+        	//    debugMaterial.SetBuffer("debugRenderPointBuffer", renderLineBuffer);
             //    debugMaterial.SetPass(0);///this has to be set
         	//    //Graphics.DrawProceduralIndirect(MeshTopology.Lines,argVerletPointBuffer);
         	//    Graphics.DrawProceduralIndirectNow(MeshTopology.Lines,argLineBuffer);
