@@ -45,6 +45,7 @@
         float2 uv : TEXCOORD0;
         float3 tan : TANGENT;
         float3 wpos : POSITIONT;
+        float3 color : COLOR;
         float4 tspace0 : TEXCOORD1;
         float4 tspace1 : TEXCOORD2;
         float4 tspace2 : TEXCOORD3;
@@ -89,7 +90,7 @@
     }
 
     //////////////
-    geometryOutput VertexOutput(float3 position, float3 normal, float3 tangent, float2 uv)
+    geometryOutput VertexOutput(float3 position, float3 normal, float3 tangent, float2 uv, float3 color)
     {
         geometryOutput o;
 
@@ -98,6 +99,7 @@
         o.norm = normal;
         o.tan = tangent;
         o.wpos = position;
+        o.color = color;
 
         ///get the tangent for normals
         half3 bi = cross(normal, tangent) * unity_WorldTransformParams.w;
@@ -127,7 +129,7 @@
         ///set the vertex ID
         uint vertex_id = IN[1].vertex_id;
         uint next_vertex_id = vertex_id+1;//
-        /*
+        
         uint prev_vertex_id = max(vertex_id-1,0);
         uint next_next_vertex_id = vertex_id+2;
 
@@ -135,7 +137,7 @@
         //float3 p1 = renderPointBuffer[vertex_id].xyz;
         //float3 p2 = renderPointBuffer[next_vertex_id].xyz;
         //float3 p3 = renderPointBuffer[next_next_vertex_id].xyz;
-
+/*
         float3 p0 = renderPointBuffer[prev_vertex_id].P.xyz;
         float3 p1 = renderPointBuffer[vertex_id].P.xyz;
         float3 p2 = renderPointBuffer[next_vertex_id].P.xyz;
@@ -160,39 +162,48 @@
         float3 direction2 = tangent2;
         float3 strandup2 = normalize(cross(direction2,forward));
         float3 width2 = strandup2*_Width*0.5;
-        */
 
-        ///////////////////////////////////////
-
-
-
-        float3 p1 = renderPointBuffer[vertex_id].P.xyz;
-        float3 p2 = renderPointBuffer[next_vertex_id].P.xyz;
-        float3 t1 = renderPointBuffer[vertex_id].tangent.xyz;
-        float3 t2 = renderPointBuffer[next_vertex_id].tangent.xyz;
-
-        float3 camLook1 = normalize(_WorldSpaceCameraPos-mul(unity_ObjectToWorld,p1));//this aint right
-        float3 camLook2 = normalize(_WorldSpaceCameraPos-mul(unity_ObjectToWorld,p2));
-        //float3 camLook = normalize(UNITY_MATRIX_V._m03_m13_m23-p1);
-
-        float3 strandup1 = normalize(cross(t1,-camLook1));
-        float3 width1 = strandup1*_Width*0.5;
-
-        float3 strandup2 = normalize(cross(t2,-camLook1));
-        float3 width2 = strandup2*_Width*0.5;
-
-        ///////////////////////////////////////
-
-
-        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0)));
-        triStream.Append(VertexOutput(p1-width1,camLook1,t1,float2(0,1)));
-        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1)));
+        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
+        triStream.Append(VertexOutput(p1-width1,-forward,tangent1,float2(0,1)));
+        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
 
         triStream.RestartStrip();
 
-        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0)));
-        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1)));
-        triStream.Append(VertexOutput(p2+width2,camLook2,t2,float2(1,0)));
+        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
+        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
+        triStream.Append(VertexOutput(p2+width2,-forward,tangent2,float2(1,0)));
+*/
+
+        ///////////////////////////////////////
+
+
+
+        float3 p1 = mul(unity_ObjectToWorld,renderPointBuffer[vertex_id].P.xyz);
+        float3 p2 = mul(unity_ObjectToWorld,renderPointBuffer[next_vertex_id].P.xyz);
+        float3 t1 = UnityObjectToWorldDir(renderPointBuffer[vertex_id].tangent.xyz);
+        float3 t2 = UnityObjectToWorldDir(renderPointBuffer[next_vertex_id].tangent.xyz);
+        float3 c1 = renderPointBuffer[vertex_id].Cd.rgb;
+        float3 c2 = renderPointBuffer[next_vertex_id].Cd.rgb;
+
+        float3 camLook1 = normalize(_WorldSpaceCameraPos-p1);//this aint right
+        float3 camLook2 = normalize(_WorldSpaceCameraPos-p2);
+        //float3 camLook = normalize(UNITY_MATRIX_V._m03_m13_m23-p1);
+
+        float3 width1 = normalize(cross(t1,-camLook1))*_Width*0.5;
+        float3 width2 = normalize(cross(t2,-camLook1))*_Width*0.5;
+
+        ///////////////////////////////////////
+
+
+        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0),c1));
+        triStream.Append(VertexOutput(p1-width1,camLook1,t1,float2(0,1),c1));
+        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1),c2));
+
+        triStream.RestartStrip();
+
+        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0),c1));
+        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1),c2));
+        triStream.Append(VertexOutput(p2+width2,camLook2,t2,float2(1,0),c2));
 
     }
     //////////////
@@ -280,7 +291,7 @@
                 float roughness = 1-_Roughness;//tex2D(_Roughness1, IN.texcoord).a;
 
                 UnityStandardData data;
-                data.diffuseColor = half3(0.5,0.5,0.5);
+                data.diffuseColor = i.color.rgb;//half3(0.5,0.5,0.5);
                 data.occlusion = 0.0; // data.occlusion = occ;
                 data.specularColor = c_spec * _SpecColor;//data.specularColor = c_spec;
                 data.smoothness = roughness;//data.smoothness = _Glossiness;

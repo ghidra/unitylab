@@ -1,6 +1,8 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSPreprocess
 
+#include "/Assets/shaders/NoiseLib.cginc"
+
 struct renderPoint{
     float3 P;
     float3 tangent;
@@ -23,4 +25,6 @@ void CSPreprocess (uint3 id : SV_DispatchThreadID)
 
     renderPointBuffer[id.x].P = p1;
     renderPointBuffer[id.x].tangent = normalize(p2-p1);
+
+    renderPointBuffer[id.x].Cd = snoise3(p1);
 }
