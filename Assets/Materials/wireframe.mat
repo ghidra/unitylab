@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: jg_wireframe
+  m_Name: wireframe
   m_Shader: {fileID: 4800000, guid: 4b1a54673198984cdbf6b75090ce5ea4, type: 3}
   m_ShaderKeywords: USEDISCARD_ON
   m_LightmapFlags: 4

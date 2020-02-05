@@ -11,9 +11,17 @@
 
     #include "UnityCG.cginc"
 
+    struct renderPoint{
+        float3 P;
+        float3 tangent;
+        float u;
+        float3 Cd;
+    };
+
 
     float _Width;
-    StructuredBuffer<float4> renderPointBuffer;
+    //StructuredBuffer<float4> renderPointBuffer;
+    StructuredBuffer<renderPoint> renderPointBuffer;
 
     struct appdata
     {
@@ -32,6 +40,8 @@
         float4 pos : SV_POSITION;
         float3 norm : NORMAL;
         float2 uv : TEXCOORD0;
+        float3 tan : TANGENT;
+        float3 wpos : POSITIONT;
         float4 tspace0 : TEXCOORD1;
         float4 tspace1 : TEXCOORD2;
         float4 tspace2 : TEXCOORD3;
@@ -83,6 +93,8 @@
         o.pos = UnityObjectToClipPos(position);
         o.uv = uv;
         o.norm = normal;
+        o.tan = tangent;
+        o.wpos = position;
 
         ///get the tangent for normals
         half3 bi = cross(normal, tangent) * unity_WorldTransformParams.w;
@@ -112,13 +124,19 @@
         ///set the vertex ID
         uint vertex_id = IN[1].vertex_id;
         uint next_vertex_id = vertex_id+1;//
+        /*
         uint prev_vertex_id = max(vertex_id-1,0);
         uint next_next_vertex_id = vertex_id+2;
 
-        float3 p0 = renderPointBuffer[prev_vertex_id].xyz;
-        float3 p1 = renderPointBuffer[vertex_id].xyz;
-        float3 p2 = renderPointBuffer[next_vertex_id].xyz;
-        float3 p3 = renderPointBuffer[next_next_vertex_id].xyz;
+        //float3 p0 = renderPointBuffer[prev_vertex_id].xyz;
+        //float3 p1 = renderPointBuffer[vertex_id].xyz;
+        //float3 p2 = renderPointBuffer[next_vertex_id].xyz;
+        //float3 p3 = renderPointBuffer[next_next_vertex_id].xyz;
+
+        float3 p0 = renderPointBuffer[prev_vertex_id].P.xyz;
+        float3 p1 = renderPointBuffer[vertex_id].P.xyz;
+        float3 p2 = renderPointBuffer[next_vertex_id].P.xyz;
+        float3 p3 = renderPointBuffer[next_next_vertex_id].P.xyz;
 
 
         ///get tangents
@@ -139,18 +157,37 @@
         float3 direction2 = tangent2;
         float3 strandup2 = normalize(cross(direction2,forward));
         float3 width2 = strandup2*_Width*0.5;
+        */
 
         ///////////////////////////////////////
 
-        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
-        triStream.Append(VertexOutput(p1-width1,-forward,tangent1,float2(0,1)));
-        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
+
+
+        float3 p1 = renderPointBuffer[vertex_id].P.xyz;
+        float3 p2 = renderPointBuffer[next_vertex_id].P.xyz;
+        float3 t1 = renderPointBuffer[vertex_id].tangent.xyz;
+        float3 t2 = renderPointBuffer[next_vertex_id].tangent.xyz;
+
+        //  float3 camLook = normalize(_WorldSpaceCameraPos-p1);//this aint right
+
+        float3 strandup1 = normalize(cross(t1,forward));
+        float3 width1 = strandup1*_Width*0.5;
+
+        float3 strandup2 = normalize(cross(t2,forward));
+        float3 width2 = strandup2*_Width*0.5;
+
+        ///////////////////////////////////////
+
+
+        triStream.Append(VertexOutput(p1+width1,-forward,t1,float2(0,0)));
+        triStream.Append(VertexOutput(p1-width1,-forward,t1,float2(0,1)));
+        triStream.Append(VertexOutput(p2-width2,-forward,t2,float2(1,1)));
 
         triStream.RestartStrip();
 
-        triStream.Append(VertexOutput(p1+width1,-forward,tangent1,float2(0,0)));
-        triStream.Append(VertexOutput(p2-width2,-forward,tangent2,float2(1,1)));
-        triStream.Append(VertexOutput(p2+width2,-forward,tangent2,float2(1,0)));
+        triStream.Append(VertexOutput(p1+width1,-forward,t1,float2(0,0)));
+        triStream.Append(VertexOutput(p2-width2,-forward,t2,float2(1,1)));
+        triStream.Append(VertexOutput(p2+width2,-forward,t2,float2(1,0)));
 
     }
     //////////////
@@ -176,18 +213,44 @@
 
             sampler2D _MainTex;
             sampler2D _NormTex;
-            float4 _MainTex_ST;
+            //float4 _MainTex_ST;
+
+            float3 perpixel_normalmap_2(float3 normalmap, float3 position, float3 normal, float3 tangent)
+            {
+                half3 bi = cross(normal, tangent) * unity_WorldTransformParams.w;
+                float4 tspace0 = float4(tangent.x, bi.x, normal.x, position.x);
+                float4 tspace1 = float4(tangent.y, bi.y, normal.y, position.y);
+                float4 tspace2 = float4(tangent.z, bi.z, normal.z, position.z);
+
+                float3 wn = normalize(float3(
+                    dot(tspace0.xyz, normalmap),
+                    dot(tspace1.xyz, normalmap),
+                    dot(tspace2.xyz, normalmap)
+                    ));
+
+                return wn;
+            }
 
             float4 frag (geometryOutput i) : SV_Target
             //void frag (geometryOutput i, inout SurfaceOutputStandard o)
             {   
                 half4 normal = tex2D(_NormTex, i.uv.yx);
                 normal.xyz = UnpackScaleNormal(normal, 1.0);
+
+                //half4 normal2 = tex2D(_NormTex, i.uv.xy*float2(i.uv.y*_SecSkew*_SecScale,1));
+                half4 normal2 = tex2D(_NormTex, (i.uv.xy+float2(i.uv.y*2,0.0))*float2(2,1));
+                normal2.xyz = UnpackScaleNormal(normal2, 1.0);
+
+                ///now get the normal value with the tube normals...
                 float3 wn = normalize(float3(
                     dot(i.tspace0.xyz, normal),
                     dot(i.tspace1.xyz, normal),
                     dot(i.tspace2.xyz, normal)
                     ));
+
+                //add in a second layer of normals, to make it tool wrapped
+                float3 nwn = perpixel_normalmap_2(normal2.xyz,i.wpos.xyz,wn,i.tan.xyz);
+
 
                 // compute view direction and reflection vector
                 // per-pixel here
@@ -198,7 +261,7 @@
                 //o.Metallic = 1.0;
                 //o.Smoothness = 0.5;
                 //o.Alpha = 1.0;
-                return float4(wn.r, wn.g, wn.b, 1);
+                return float4(nwn.r, nwn.g, nwn.b, 1);
             }
             ENDCG
         }

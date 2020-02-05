@@ -1,0 +1,26 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSPreprocess
+
+struct renderPoint{
+    float3 P;
+    float3 tangent;
+    float u;
+    float3 Cd;
+};
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWStructuredBuffer<renderPoint> renderPointBuffer;
+StructuredBuffer<float4> simPointBuffer;
+
+[numthreads(256,1,1)]
+void CSPreprocess (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    float3 p1 = simPointBuffer[id.x].xyz;
+    float3 p2 = simPointBuffer[id.x+1].xyz;
+
+    renderPointBuffer[id.x].P = p1;
+    renderPointBuffer[id.x].tangent = normalize(p2-p1);
+}

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Runtime.InteropServices;
 
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
@@ -9,20 +10,33 @@ public class tmp_strands : MonoBehaviour
 {
 	private Mesh mesh;
     public Material strandMaterial;
+
+    [Range(0.1f, 64.0f)]
+    public float length=1.0f;
+    [Range(1, 1024)]
+    public uint verts=32;
+    [Range(0.0f, 64.0f)]
+    public float noiseMagnitude=1.0f;
+
+
+    ///preprocess curves for renderer
+    public ComputeShader _preprocessShader;
+    private int preprocessKernelID;
+    private int preprocessWarpCount;
+    private const int V_WARP_SIZE = 256;
+
+        ///the buffer I AM PASSING TO THE RENDERER, THIS IS THE RESULT AFTER THE PREPROCESS STEP
     private ComputeBuffer renderPointBuffer;//
 
+    //values from simulation I want to pass to the geo shader
     public struct renderPoint{
         public Vector3 P;
         public Vector3 tangent;
-        public Vector2 uv;
+        public float u;
+        public Vector3 Cd;
     }
 
-	[Range(0.1f, 64.0f)]
-	public float length=1.0f;
-	[Range(1, 1024)]
-	public uint verts=32;
-	[Range(0.0f, 64.0f)]
-	public float noiseMagnitude=1.0f;
+	
 
 	//////DEBUG
 	//public bool drawDebug;
@@ -74,11 +88,7 @@ public class tmp_strands : MonoBehaviour
         mesh.triangles = indices.ToArray();
 
        
-        //foreach( var human in vertices4.ToArray() )
- 		//{
-   		//	Debug.Log( human );
- 		//}
-        //////
+        ////////////////////
         //////DEBUG
         ///point render
     	debugRenderPointBuffer = new ComputeBuffer((int)verts, 4*sizeof(float) );///this is to hold positions to render as points
@@ -86,6 +96,22 @@ public class tmp_strands : MonoBehaviour
     	
     	argPointBuffer = new ComputeBuffer(1, 4 * sizeof(uint), ComputeBufferType.IndirectArguments);
         argPointBuffer.SetData(new uint[4] { verts, 1, 0, 0 });
+
+        ////////////////////
+        //////BUILD PREPROCESS STEP
+        ////BUFFER TO BE FILLED
+        renderPointBuffer = new ComputeBuffer((int)verts, Marshal.SizeOf(typeof(renderPoint)) );///this is to hold positions to render as points
+        renderPoint[] tmpBufferArray = new renderPoint[verts];
+        renderPointBuffer.SetData(tmpBufferArray);
+        /////PREPROCESS SHADER
+        if(_preprocessShader!=null)
+        {
+            preprocessKernelID = _preprocessShader.FindKernel("CSPreprocess");
+            preprocessWarpCount = Mathf.CeilToInt((float)verts / V_WARP_SIZE);
+            _preprocessShader.SetBuffer(preprocessKernelID, "renderPointBuffer", renderPointBuffer);
+            _preprocessShader.SetBuffer(preprocessKernelID, "simPointBuffer", debugRenderPointBuffer);////I WILL NEED TO PASS IN A BUFFER TO PREPROCSESS
+        }
+
         ////////////////////
         //int numLines = (int)verts-1;//
         //renderLineBuffer = new ComputeBuffer(numLines, 3*sizeof(float) );///this is to hold positions to render as points
@@ -97,7 +123,8 @@ public class tmp_strands : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
         if(strandMaterial!=null)
         {
-            strandMaterial.SetBuffer("renderPointBuffer", debugRenderPointBuffer);
+            //strandMaterial.SetBuffer("renderPointBuffer", debugRenderPointBuffer);
+            strandMaterial.SetBuffer("renderPointBuffer", renderPointBuffer);
             GetComponent<MeshRenderer>().material = strandMaterial;
         }
         
@@ -106,7 +133,13 @@ public class tmp_strands : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        ///dispatch the  preprocess
+        if(_preprocessShader!=null)
+        {
+            //Debug.Log("computing");
+            _preprocessShader.Dispatch(preprocessKernelID, preprocessWarpCount, 1, 1);
+        }
+
     }
     void OnDisable () 
 	{
@@ -114,10 +147,10 @@ public class tmp_strands : MonoBehaviour
 	}
 
     protected virtual void ReleaseBuffers(){//protected override 
+        if(renderPointBuffer!=null)renderPointBuffer.Release();
         if(debugRenderPointBuffer!=null)debugRenderPointBuffer.Release();
-        //renderLineBuffer.Release();
-
         if(argPointBuffer!=null)argPointBuffer.Release();
+        //renderLineBuffer.Release();
         //argLineBuffer.Release();
     }
 

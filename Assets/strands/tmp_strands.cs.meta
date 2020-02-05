@@ -5,6 +5,7 @@ MonoImporter:
   serializedVersion: 2
   defaultReferences:
   - strandMaterial: {fileID: 2100000, guid: ffa89f67d8cf6424db515f56af2cb956, type: 2}
+  - _preprocessShader: {fileID: 7200000, guid: 92c12da1cd6f7a794b51849d92b87938, type: 3}
   - debugMaterial: {fileID: 2100000, guid: 574b132feb7e0ae7080d2a5ef0b0e4f5, type: 2}
   executionOrder: 0
   icon: {instanceID: 0}
