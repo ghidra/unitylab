@@ -28,8 +28,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
+    - _Metallic: 1
+    - _Roughness: 0.71
     - _SecScale: 2
     - _SecSkew: 2
     - _Skew: 0.2
-    - _Width: 0.16
-    m_Colors: []
+    - _Width: 0.29
+    m_Colors:
+    - _SpecColor: {r: 1, g: 1, b: 1, a: 1}

@@ -5,6 +5,9 @@
         _MainTex ("Texture", 2D) = "white" {}
         _NormTex ("Texture", 2D) = "gray" {}
         _Width ("Line Width", Range(0.01,2))=0.1
+        _SpecColor ("Specular Color", Color)=(1,1,1,1)
+        _Metallic ("Metallic", Range(0, 1)) = 0
+        _Roughness ("Roughness", Range(0, 1)) = 0.5
     }
 
     CGINCLUDE
@@ -114,7 +117,7 @@
         ///////////////////////////////
         // get the camera basis vectors
         //https://gist.github.com/renaudbedard/7a90ec4a5a7359712202
-        float3 forward = -normalize(UNITY_MATRIX_V._m20_m21_m22);
+        float3 forward = normalize(UNITY_MATRIX_V._m20_m21_m22);
         float3 up = float3(0, 1, 0); //normalize(UNITY_MATRIX_V._m10_m11_m12);
         float3 right = normalize(UNITY_MATRIX_V._m00_m01_m02);
         // rotate to face camera
@@ -168,26 +171,28 @@
         float3 t1 = renderPointBuffer[vertex_id].tangent.xyz;
         float3 t2 = renderPointBuffer[next_vertex_id].tangent.xyz;
 
-        //  float3 camLook = normalize(_WorldSpaceCameraPos-p1);//this aint right
+        float3 camLook1 = normalize(_WorldSpaceCameraPos-mul(unity_ObjectToWorld,p1));//this aint right
+        float3 camLook2 = normalize(_WorldSpaceCameraPos-mul(unity_ObjectToWorld,p2));
+        //float3 camLook = normalize(UNITY_MATRIX_V._m03_m13_m23-p1);
 
-        float3 strandup1 = normalize(cross(t1,forward));
+        float3 strandup1 = normalize(cross(t1,-camLook1));
         float3 width1 = strandup1*_Width*0.5;
 
-        float3 strandup2 = normalize(cross(t2,forward));
+        float3 strandup2 = normalize(cross(t2,-camLook1));
         float3 width2 = strandup2*_Width*0.5;
 
         ///////////////////////////////////////
 
 
-        triStream.Append(VertexOutput(p1+width1,-forward,t1,float2(0,0)));
-        triStream.Append(VertexOutput(p1-width1,-forward,t1,float2(0,1)));
-        triStream.Append(VertexOutput(p2-width2,-forward,t2,float2(1,1)));
+        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0)));
+        triStream.Append(VertexOutput(p1-width1,camLook1,t1,float2(0,1)));
+        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1)));
 
         triStream.RestartStrip();
 
-        triStream.Append(VertexOutput(p1+width1,-forward,t1,float2(0,0)));
-        triStream.Append(VertexOutput(p2-width2,-forward,t2,float2(1,1)));
-        triStream.Append(VertexOutput(p2+width2,-forward,t2,float2(1,0)));
+        triStream.Append(VertexOutput(p1+width1,camLook1,t1,float2(0,0)));
+        triStream.Append(VertexOutput(p2-width2,camLook2,t2,float2(1,1)));
+        triStream.Append(VertexOutput(p2+width2,camLook2,t2,float2(1,0)));
 
     }
     //////////////
@@ -196,9 +201,12 @@
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        //Tags { "RenderType"="Opaque" }
+        Tags{ "LightMode" = "Deferred" }
+        Blend Off
+
         LOD 100
-        //Cull Off
+
 
         Pass
         {
@@ -210,10 +218,15 @@
             #pragma target 4.6
             #include "UnityGBuffer.cginc"
             #include "UnityStandardUtils.cginc"
+            #pragma multi_compile_prepassfinal noshadowmask nodynlightmap nodirlightmap nolightmap
+
 
             sampler2D _MainTex;
             sampler2D _NormTex;
             //float4 _MainTex_ST;
+            float4 _SpecColor;
+            float _Metallic;
+            float _Roughness;
 
             float3 perpixel_normalmap_2(float3 normalmap, float3 position, float3 normal, float3 tangent)
             {
@@ -231,9 +244,10 @@
                 return wn;
             }
 
-            float4 frag (geometryOutput i) : SV_Target
-            //void frag (geometryOutput i, inout SurfaceOutputStandard o)
-            {   
+            //https://github.com/tchpowdog/SurrealGrassShader/blob/master/SurrealGrassShader/Shaders/SurrealGrassShader.shader
+            //float4 frag (geometryOutput i) : SV_Target
+            void frag(geometryOutput i,out half4 outGBuffer0 : SV_Target0,out half4 outGBuffer1 : SV_Target1,out half4 outGBuffer2 : SV_Target2,out half4 outEmission : SV_Target3)
+            {
                 half4 normal = tex2D(_NormTex, i.uv.yx);
                 normal.xyz = UnpackScaleNormal(normal, 1.0);
 
@@ -251,17 +265,34 @@
                 //add in a second layer of normals, to make it tool wrapped
                 float3 nwn = perpixel_normalmap_2(normal2.xyz,i.wpos.xyz,wn,i.tan.xyz);
 
+                /////////////////////////
+                //return float4(nwn.r, nwn.g, nwn.b, 1);
 
-                // compute view direction and reflection vector
-                // per-pixel here
-                //half3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
-                //half3 worldRefl = reflect(-worldViewDir, i.worldNormal);
+                /////////////////////////
+                fixed4 c = fixed4(0.5,0.5,0.5,1.0);
 
-                //o.Albedo = n.rgb;
-                //o.Metallic = 1.0;
-                //o.Smoothness = 0.5;
-                //o.Alpha = 1.0;
-                return float4(nwn.r, nwn.g, nwn.b, 1);
+                half3 c_diff, c_spec;
+                half refl10;
+                c_diff = DiffuseAndSpecularFromMetallic(
+                    c, _Metallic,
+                    c_spec, refl10
+                );
+                float roughness = 1-_Roughness;//tex2D(_Roughness1, IN.texcoord).a;
+
+                UnityStandardData data;
+                data.diffuseColor = half3(0.5,0.5,0.5);
+                data.occlusion = 0.0; // data.occlusion = occ;
+                data.specularColor = c_spec * _SpecColor;//data.specularColor = c_spec;
+                data.smoothness = roughness;//data.smoothness = _Glossiness;
+                data.normalWorld = nwn;// float3(0,1,0);
+                UnityStandardDataToGbuffer(data, outGBuffer0, outGBuffer1, outGBuffer2);
+
+                // Calculate ambient lighting and output to the emission buffer.
+                float3 wp = float3(i.tspace0.w, i.tspace1.w, i.tspace2.w);
+                half3 sh = ShadeSHPerPixel(data.normalWorld, half3(0,0,0), wp);//the half there is an ambient light
+                outEmission = half4(sh * c_diff, 1);// * occ;
+                
+
             }
             ENDCG
         }
