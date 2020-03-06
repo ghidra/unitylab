@@ -1,0 +1,31 @@
+﻿#pragma kernel CStransfer
+
+#include "voxelStructs.cginc"
+
+//RWTexture2D<float4> Result;
+Texture3D<float4> VoxelTexture;
+SamplerState samplerVoxelTexture;
+
+RWStructuredBuffer<voxelPoint> transferBuffer;
+
+float3 voxelDimensions;
+
+//
+
+[numthreads(256,1,1)]
+void CStransfer (uint3 id : SV_DispatchThreadID)
+{
+	//Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+	//use the imported dimension information to traverse the texture to put it on the buffer points
+	int x = int(voxelDimensions.x);
+	int y = int(voxelDimensions.y);
+	int z = int(voxelDimensions.z);
+
+    int mx = id.x%x;
+    int my = (id.x/x)%y;
+    int mz = id.x/(x*y);
+
+    transferBuffer[id.x].P = float3(mx,my,mz);
+    float4 tCd = VoxelTexture.SampleLevel(samplerVoxelTexture, int3(mx,my,mz), 0);
+    transferBuffer[id.x].Cd = tCd.xyz;//VoxelTexture[mx,my,mz].xyz;//float3(1,0,0);//
+}

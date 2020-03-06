@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 05fd8a82ae44f464980c4a1c6c4e5a72
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - mVoxelTexture: {fileID: 8600000, guid: 8efa7110cc1177b4591579d3e4b17274, type: 2}
+  - mTextureToBufferTransferShader: {fileID: 7200000, guid: 2eb8628b2c4504c4ab86336b7938ebd5,
+      type: 3}
+  - mVisualizeMaterial: {fileID: 2100000, guid: 90df36c65fa6dad4db0f8084063e17c8,
+      type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
