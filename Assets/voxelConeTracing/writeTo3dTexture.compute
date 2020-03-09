@@ -1,0 +1,22 @@
+﻿#pragma kernel CSWriteTexture
+
+RWTexture3D<float4> VoxelTexture;
+float3 voxelDimensions;
+
+[numthreads(256,1,1)]
+void CSWriteTexture (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+	int x = int(voxelDimensions.x);
+	int y = int(voxelDimensions.y);
+	int z = int(voxelDimensions.z);
+
+    int mx = id.x%x;
+    int my = (id.x/x)%y;
+    int mz = id.x/(x*y);
+
+    float3 pos = float3(mx,my,mz);
+    float3 npos = pos/float3(float(x),float(y),float(z));
+
+    VoxelTexture[int3(pos)] = float4(1,0,0,1);//float4(npos,1);//float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+}

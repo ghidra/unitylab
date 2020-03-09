@@ -13,12 +13,12 @@ CustomRenderTexture:
   m_ForcedFallbackFormat: 4
   m_DownscaleFallback: 0
   serializedVersion: 3
-  m_Width: 256
-  m_Height: 256
+  m_Width: 128
+  m_Height: 128
   m_AntiAliasing: 1
   m_MipCount: -1
   m_DepthFormat: 0
-  m_ColorFormat: 8
+  m_ColorFormat: 48
   m_MipMap: 0
   m_GenerateMips: 1
   m_SRGB: 0
@@ -34,7 +34,7 @@ CustomRenderTexture:
     m_WrapV: 0
     m_WrapW: 0
   m_Dimension: 3
-  m_VolumeDepth: 256
+  m_VolumeDepth: 128
   m_Material: {fileID: 2100000, guid: ffae81f42d7168b49aa04aafdf168096, type: 2}
   m_InitSource: 0
   m_InitMaterial: {fileID: 0}
