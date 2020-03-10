@@ -14,6 +14,7 @@ public class voxelConeTracingVisualizer : MonoBehaviour
 	public ComputeShader mWriteToTextureShader;
 	private int writeKernelID;
 	private int writeWarpCount;
+	public Material mDraw3dTexuteMaterial;
 
 	public ComputeShader mTextureToBufferTransferShader;
 	public Material mVisualizeMaterial;
@@ -93,6 +94,14 @@ public class voxelConeTracingVisualizer : MonoBehaviour
 	        	mWriteToTextureShader.SetVector("voxelDimensions",new Vector3(_w,_h,_d));
 	        	//dispatch this guy
 	        	mWriteToTextureShader.Dispatch(writeKernelID, writeWarpCount, 1, 1);
+
+	        	//print(mVoxelTex.GetPixel(32,32,32,0));
+	        	print("----------------------------");
+	        }
+	        ////put the generated texture on the temp material to see if it's getting any values on it
+	        if(mDraw3dTexuteMaterial!=null)
+	        {
+	        	mDraw3dTexuteMaterial.SetTexture("_Tex",mVoxelTex);
 	        }
 	    }
 

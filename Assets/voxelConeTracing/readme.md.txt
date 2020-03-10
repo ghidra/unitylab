@@ -1,0 +1,3 @@
+This kind of got stuck at the ability to NOT draw into a 3d texture in an acceptable way. I think I was able to draw into the custom render texture 3d texture, but that lacks mip mapping, which is intergral to the methodology.
+I am making a 3d texture render texture programatically, that should have mip mapping, but I am unable to draw into it from the compute shader. At least I am not getting errors. But I am also not seeing results from drawing.
+There is some debugging visualization set up to confirm data or lack of. All drawing black.
