@@ -35,13 +35,13 @@ CustomRenderTexture:
     m_WrapW: 1
   m_Dimension: 2
   m_VolumeDepth: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: bb346ebc2e3399f4e976959587c0bf4f, type: 2}
   m_InitSource: 0
   m_InitMaterial: {fileID: 0}
-  m_InitColor: {r: 1, g: 1, b: 1, a: 1}
+  m_InitColor: {r: 0.49336118, g: 0.05731578, b: 0.5283019, a: 1}
   m_InitTexture: {fileID: 0}
-  m_UpdateMode: 0
-  m_InitializationMode: 2
+  m_UpdateMode: 1
+  m_InitializationMode: 0
   m_UpdateZoneSpace: 0
   m_CurrentUpdateZoneSpace: 0
   m_UpdateZones: []
