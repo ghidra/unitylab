@@ -33,6 +33,6 @@ Material:
     - _SecScale: 2
     - _SecSkew: 2
     - _Skew: 0.2
-    - _Width: 0.29
+    - _Width: 0.1
     m_Colors:
     - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
